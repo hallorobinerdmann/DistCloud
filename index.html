@@ -20,7 +20,9 @@
   .sub { color:var(--mute); font-size:13px; margin:0 0 12px; }
   label { display:block; font-size:13px; font-weight:600; margin:10px 0 4px; }
   .row { display:flex; gap:8px; align-items:center; }
-  input[type=number], input[type=password] { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; }
+  input[type=number], input[type=password], input[type=text] { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; }
+  input.ok { background:#e6f4ec; border-color:var(--acc); }
+  input.bad { background:#fbe9e6; border-color:var(--warn); }
   input[type=range] { width:100%; accent-color:var(--acc); }
   .val { min-width:48px; text-align:right; font-weight:600; font-size:14px; }
   .chk { display:flex; gap:8px; align-items:center; font-size:13px; font-weight:400; margin-top:10px; }
@@ -60,6 +62,9 @@
     <button class="ghost" id="gps">Mein Standort</button>
     <span id="pos" style="font-size:13px;color:var(--mute)">oder auf die Karte tippen</span>
   </div>
+
+  <label for="dest">Ziel (optional)</label>
+  <input id="dest" type="text" placeholder="Ort oder Adresse" autocomplete="off" oninput="this.className=''">
 
   <details id="keybox">
     <summary>OpenRouteService-Schlüssel</summary>
@@ -103,6 +108,34 @@ $('gps').onclick = () => {
   }, () => say('Standort verweigert. Tippe stattdessen auf die Karte.', true));
 };
 
+let destMarker = null;
+function inRing(pt, ring) {
+  let c = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+function inPoly(pt, geom) {
+  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+  return polys.some(p => inRing(pt, p[0]) && !p.slice(1).some(h => inRing(pt, h)));
+}
+async function checkDest(key, feature) {
+  if (destMarker) { destMarker.remove(); destMarker = null; }
+  $('dest').className = '';
+  const q = $('dest').value.trim();
+  if (!q) return '';
+  const r = await fetch('https://api.openrouteservice.org/geocode/search?size=1&text=' + encodeURIComponent(q), { headers:{ 'Authorization':key } });
+  const g = await r.json();
+  if (!r.ok || !g.features || !g.features.length) return 'Ziel nicht gefunden.';
+  const [lng, lat] = g.features[0].geometry.coordinates;
+  const ok = inPoly([lng, lat], feature.geometry);
+  destMarker = L.circleMarker([lat, lng], { radius:9, color:'#fff', weight:2, fillColor: ok ? '#2e9e5b' : '#d6452f', fillOpacity:1 }).addTo(map);
+  $('dest').className = ok ? 'ok' : 'bad';
+  return ok ? 'Ziel liegt in der Wolke.' : 'Ziel liegt außerhalb der Wolke.';
+}
+
 $('go').onclick = async () => {
   const key = $('key').value.trim();
   if (!key) { $('keybox').open = true; return say('Ohne API-Schlüssel keine Wolke.', true); }
@@ -132,10 +165,12 @@ $('go').onclick = async () => {
         ? { color:'#2e9e5b', weight:2, fillColor:'#2e9e5b', fillOpacity:.35 }
         : { color:'#2e9e5b', weight:1, dashArray:'4', fillColor:'#2e9e5b', fillOpacity:.12 }
     }).addTo(map);
-    map.fitBounds(cloud.getBounds(), { paddingBottomRight:[0, 260] });
-    say(ranges.length > 1
-      ? 'Dunkel: sicher erreichbar. Gestrichelt: theoretisch erreichbar.'
-      : 'Fertig. Das ist deine Wolke.');
+    const inner = data.features.find(f => f.properties.value === ranges[0]) || data.features[0];
+    const destMsg = await checkDest(key, inner);
+    const b = cloud.getBounds();
+    if (destMarker) b.extend(destMarker.getLatLng());
+    map.fitBounds(b, { paddingBottomRight:[0, 260] });
+    say((ranges.length > 1 ? 'Dunkel: sicher erreichbar. Gestrichelt: theoretisch erreichbar.' : 'Fertig. Das ist deine Wolke.') + ' ' + destMsg);
   } catch (e) {
     say('Fehler: ' + e.message + '. Prüfe Schlüssel und Entfernung, ORS begrenzt die maximale Strecke pro Anfrage.', true);
   } finally { $('go').disabled = false; }
