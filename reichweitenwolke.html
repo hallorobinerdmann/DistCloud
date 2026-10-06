@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reichweitenwolke</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#fff; --ink:#1b1f24; --mute:#6b7280; --line:#e5e7eb; --acc:#2e9e5b; --warn:#d6452f; }
+  * { box-sizing: border-box; }
+  html, body { height:100%; margin:0; font-family:Inter,system-ui,sans-serif; color:var(--ink); }
+  #map { position:absolute; inset:0; }
+  .panel { position:absolute; z-index:1000; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom,0px));
+    max-width:420px; background:var(--bg); border-radius:14px; padding:16px; box-shadow:0 2px 12px rgba(0,0,0,.18); }
+  h1 { font-size:18px; margin:0 0 2px; }
+  .sub { color:var(--mute); font-size:13px; margin:0 0 12px; }
+  label { display:block; font-size:13px; font-weight:600; margin:10px 0 4px; }
+  .row { display:flex; gap:8px; align-items:center; }
+  input[type=number], input[type=password] { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; }
+  input[type=range] { width:100%; accent-color:var(--acc); }
+  .val { min-width:48px; text-align:right; font-weight:600; font-size:14px; }
+  .chk { display:flex; gap:8px; align-items:center; font-size:13px; font-weight:400; margin-top:10px; }
+  button { font:inherit; font-weight:600; border:0; border-radius:8px; padding:11px 14px; cursor:pointer; }
+  .go { background:var(--acc); color:#fff; width:100%; margin-top:12px; }
+  .go:disabled { opacity:.5; }
+  .ghost { background:#f1f3f5; color:var(--ink); white-space:nowrap; }
+  #msg { font-size:13px; margin-top:10px; min-height:18px; }
+  #msg.err { color:var(--warn); }
+  details { margin-top:8px; font-size:13px; }
+  summary { cursor:pointer; color:var(--mute); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="panel">
+  <h1>Reichweitenwolke</h1>
+  <p class="sub">Wie weit kommst du noch, bevor die Ladesäule ruft?</p>
+
+  <label for="km">Restreichweite (km)</label>
+  <input id="km" type="number" min="1" value="150" inputmode="numeric">
+
+  <label for="buf">Sicherheitspuffer <span class="val" id="bufv" style="float:right">15 %</span></label>
+  <input id="buf" type="range" min="0" max="40" value="15">
+
+  <label class="chk"><input id="ret" type="checkbox"> Hin und zurück (halbe Strecke)</label>
+
+  <label>Startpunkt</label>
+  <div class="row">
+    <button class="ghost" id="gps">Mein Standort</button>
+    <span id="pos" style="font-size:13px;color:var(--mute)">oder auf die Karte tippen</span>
+  </div>
+
+  <details id="keybox">
+    <summary>OpenRouteService-Schlüssel</summary>
+    <input id="key" type="password" placeholder="API-Schlüssel einfügen" autocomplete="off" style="margin-top:6px">
+  </details>
+
+  <button class="go" id="go" disabled>Wolke berechnen</button>
+  <div id="msg"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const map = L.map('map', { zoomControl:false }).setView([51.16, 10.45], 6);
+L.control.zoom({ position:'topright' }).addTo(map);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom:19, attribution:'© OpenStreetMap-Mitwirkende'
+}).addTo(map);
+
+let start = null, marker = null, cloud = null;
+try { $('key').value = localStorage.getItem('ors_key') || ''; } catch(e) {}
+if (!$('key').value) $('keybox').open = true;
+
+function setStart(latlng) {
+  start = latlng;
+  if (marker) marker.setLatLng(latlng); else marker = L.marker(latlng).addTo(map);
+  $('pos').textContent = latlng.lat.toFixed(4) + ', ' + latlng.lng.toFixed(4);
+  $('go').disabled = false;
+}
+function say(t, err) { $('msg').textContent = t; $('msg').className = err ? 'err' : ''; }
+
+map.on('click', e => setStart(e.latlng));
+$('buf').oninput = () => $('bufv').textContent = $('buf').value + ' %';
+
+$('gps').onclick = () => {
+  if (!navigator.geolocation) return say('Dieses Gerät kann keinen Standort liefern. Tippe auf die Karte.', true);
+  say('Suche Standort …');
+  navigator.geolocation.getCurrentPosition(p => {
+    const ll = L.latLng(p.coords.latitude, p.coords.longitude);
+    setStart(ll); map.setView(ll, 9); say('');
+  }, () => say('Standort verweigert. Tippe stattdessen auf die Karte.', true));
+};
+
+$('go').onclick = async () => {
+  const key = $('key').value.trim();
+  if (!key) { $('keybox').open = true; return say('Ohne API-Schlüssel keine Wolke.', true); }
+  try { localStorage.setItem('ors_key', key); } catch(e) {}
+
+  let km = parseFloat($('km').value);
+  if (!(km > 0)) return say('Gib eine Restreichweite über 0 km ein.', true);
+  if ($('ret').checked) km /= 2;
+  const safe = Math.round(km * (1 - $('buf').value / 100) * 1000);
+  const full = Math.round(km * 1000);
+  const ranges = safe < full ? [safe, full] : [full];
+
+  $('go').disabled = true; say('Rechne …');
+  try {
+    const r = await fetch('https://api.openrouteservice.org/v2/isochrones/driving-car', {
+      method:'POST',
+      headers:{ 'Authorization':key, 'Content-Type':'application/json' },
+      body: JSON.stringify({ locations:[[start.lng, start.lat]], range:ranges, range_type:'distance', units:'m' })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error((data.error && (data.error.message || data.error)) || ('HTTP ' + r.status));
+
+    if (cloud) cloud.remove();
+    cloud = L.geoJSON(data, {
+      style: f => f.properties.value === safe && ranges.length > 1
+        ? { color:'#2e9e5b', weight:2, fillColor:'#2e9e5b', fillOpacity:.35 }
+        : { color:'#2e9e5b', weight:1, dashArray:'4', fillColor:'#2e9e5b', fillOpacity:.12 }
+    }).addTo(map);
+    map.fitBounds(cloud.getBounds(), { paddingBottomRight:[0, 260] });
+    say(ranges.length > 1
+      ? 'Dunkel: sicher erreichbar. Gestrichelt: theoretisch erreichbar.'
+      : 'Fertig. Das ist deine Wolke.');
+  } catch (e) {
+    say('Fehler: ' + e.message + '. Prüfe Schlüssel und Entfernung, ORS begrenzt die maximale Strecke pro Anfrage.', true);
+  } finally { $('go').disabled = false; }
+};
+</script>
+</body>
+</html>
