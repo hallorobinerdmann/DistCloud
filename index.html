@@ -8,32 +8,72 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#fff; --ink:#1b1f24; --mute:#6b7280; --line:#e5e7eb; --acc:#2e9e5b; --warn:#d6452f; }
+  :root { --bg:#fff; --ink:#1b1f24; --mute:#6b7280; --fill:#f3f4f6; --acc:#2e9e5b; --warn:#d6452f; --shadow:0 2px 12px rgba(0,0,0,.16); }
   * { box-sizing: border-box; }
   html, body { height:100%; margin:0; font-family:Inter,system-ui,sans-serif; color:var(--ink); }
   #map { position:absolute; inset:0; }
-  .panel { position:absolute; z-index:1000; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom,0px));
-    max-width:420px; background:var(--bg); border-radius:14px; padding:16px; box-shadow:0 2px 12px rgba(0,0,0,.18); }
+  button { font:inherit; font-weight:600; border:0; cursor:pointer; }
+
   .brand { position:absolute; z-index:1000; top:calc(12px + env(safe-area-inset-top,0px)); left:12px; display:flex;
     align-items:center; gap:8px; background:var(--bg); padding:7px 12px 7px 9px; border-radius:999px;
-    box-shadow:0 2px 12px rgba(0,0,0,.18); font-weight:700; font-size:16px; letter-spacing:-.01em; }
-  .sub { color:var(--mute); font-size:13px; margin:0 0 12px; }
-  label { display:block; font-size:13px; font-weight:600; margin:10px 0 4px; }
-  .row { display:flex; gap:8px; align-items:center; }
-  input[type=number], input[type=password], input[type=text] { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; }
-  input.ok { background:#e6f4ec; border-color:var(--acc); }
-  input.bad { background:#fbe9e6; border-color:var(--warn); }
-  input[type=range] { width:100%; accent-color:var(--acc); }
-  .val { min-width:48px; text-align:right; font-weight:600; font-size:14px; }
-  .chk { display:flex; gap:8px; align-items:center; font-size:13px; font-weight:400; margin-top:10px; }
-  button { font:inherit; font-weight:600; border:0; border-radius:8px; padding:11px 14px; cursor:pointer; }
-  .go { background:var(--acc); color:#fff; width:100%; margin-top:12px; }
-  .go:disabled { opacity:.5; }
-  .ghost { background:#f1f3f5; color:var(--ink); white-space:nowrap; }
-  #msg { font-size:13px; margin-top:10px; min-height:18px; }
+    box-shadow:var(--shadow); font-weight:700; font-size:16px; letter-spacing:-.01em; }
+
+  .chips { position:absolute; z-index:1000; top:calc(58px + env(safe-area-inset-top,0px)); left:12px; right:12px;
+    display:flex; gap:6px; overflow-x:auto; padding:2px 2px 6px; scrollbar-width:none; }
+  .chips[hidden] { display:none; }
+  .chips button { background:var(--bg); color:var(--ink); box-shadow:var(--shadow); border-radius:999px;
+    padding:7px 12px; font-size:13px; white-space:nowrap; }
+  .chips button.on { background:var(--ink); color:#fff; }
+
+  .dock { position:absolute; z-index:1001; left:12px; right:60px; bottom:calc(12px + env(safe-area-inset-bottom,0px));
+    display:flex; align-items:center; gap:8px; pointer-events:none; }
+  .dock > * { pointer-events:auto; }
+  .fab { display:flex; align-items:center; gap:8px; background:var(--ink); color:#fff; padding:12px 16px;
+    border-radius:999px; box-shadow:var(--shadow); flex:none; }
+  #msg { background:var(--bg); border-radius:12px; padding:9px 12px; font-size:13px; box-shadow:var(--shadow); }
+  #msg:empty { display:none; }
   #msg.err { color:var(--warn); }
-  details { margin-top:8px; font-size:13px; }
+
+  .panel { position:absolute; z-index:1000; left:12px; right:12px; bottom:calc(72px + env(safe-area-inset-bottom,0px));
+    max-width:380px; max-height:calc(100% - 150px); overflow-y:auto; background:var(--bg); border-radius:18px;
+    padding:18px; box-shadow:var(--shadow); transition:opacity .15s, transform .15s; }
+  .panel.hidden { opacity:0; transform:translateY(8px); pointer-events:none; }
+  .sub { color:var(--mute); font-size:13px; margin:0 0 16px; }
+
+  .field { margin-bottom:16px; }
+  label { display:block; font-size:13px; font-weight:600; margin:0 0 6px; }
+  label b { float:right; color:var(--acc); }
+  label em { font-style:normal; font-weight:400; color:var(--mute); margin-left:4px; }
+  small { display:block; color:var(--mute); font-size:12px; margin-top:4px; }
+
+  .panel input[type=number], .panel input[type=text], .panel input[type=password] { width:100%; padding:12px 14px;
+    border:2px solid transparent; border-radius:12px; background:var(--fill); font:inherit; color:inherit; outline:0; }
+  .panel .km input[type=number] { padding-right:44px; }
+  .panel input[type=number]:focus, .panel input[type=text]:focus, .panel input[type=password]:focus { border-color:var(--acc); background:#fff; }
+  .panel input[type=text].ok { background:#e6f4ec; border-color:var(--acc); }
+  .panel input[type=text].bad { background:#fbe9e6; border-color:var(--warn); }
+  .km { position:relative; }
+  .km span { position:absolute; right:14px; top:50%; transform:translateY(-50%); color:var(--mute); font-weight:600; }
+  input[type=range] { width:100%; accent-color:var(--acc); }
+
+  .toggles { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .tg { display:inline-block; margin:0; }
+  .tg input { position:absolute; opacity:0; pointer-events:none; }
+  .tg span { display:inline-block; padding:9px 14px; border-radius:999px; background:var(--fill); font-size:13px; font-weight:600; cursor:pointer; }
+  .tg input:checked + span { background:var(--acc); color:#fff; }
+  .tg input:focus-visible + span { outline:2px solid var(--ink); outline-offset:2px; }
+
+  .row { display:flex; gap:10px; align-items:center; }
+  .ghost { background:var(--fill); color:var(--ink); padding:10px 14px; border-radius:12px; white-space:nowrap; }
+  #pos { font-size:13px; color:var(--mute); }
+  details { margin-bottom:16px; font-size:13px; }
   summary { cursor:pointer; color:var(--mute); }
+  details input { margin-top:8px; }
+  .go { background:var(--acc); color:#fff; width:100%; padding:14px; border-radius:12px; font-size:15px; }
+  .go:disabled { opacity:.4; cursor:default; }
+
+  .leaflet-popup-content a.nav { display:inline-block; margin-top:8px; background:var(--acc); color:#fff;
+    padding:7px 12px; border-radius:8px; text-decoration:none; font-weight:600; }
 </style>
 </head>
 <body>
@@ -46,41 +86,59 @@
   </svg>
   <span>DistCloud</span>
 </div>
-<div class="panel">
+
+<div id="chips" class="chips" hidden></div>
+
+<div class="dock">
+  <button id="toggle" class="fab" aria-label="Eingaben ein- oder ausblenden">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+    Eingaben
+  </button>
+  <div id="msg"></div>
+</div>
+
+<div class="panel" id="panel">
   <p class="sub">Wie weit kommst du noch, bevor die Ladesäule ruft?</p>
 
-  <label for="km">Restreichweite (km, max. 120)</label>
-  <input id="km" type="number" min="1" max="120" value="100" inputmode="numeric">
-
-  <label for="buf">Sicherheitspuffer <span class="val" id="bufv" style="float:right">15 %</span></label>
-  <input id="buf" type="range" min="0" max="40" value="15">
-
-  <label class="chk"><input id="ret" type="checkbox"> Hin und zurück (halbe Strecke)</label>
-  <label class="chk"><input id="chg" type="checkbox" checked> Schnelllader (CCS) am Rand zeigen</label>
-
-  <label>Startpunkt</label>
-  <div class="row">
-    <button class="ghost" id="gps">Mein Standort</button>
-    <span id="pos" style="font-size:13px;color:var(--mute)">oder auf die Karte tippen</span>
+  <div class="field">
+    <label for="km">Restreichweite</label>
+    <div class="km"><input id="km" type="number" min="1" max="120" value="100" inputmode="numeric"><span>km</span></div>
+    <small>Maximal 120 km</small>
   </div>
 
-  <label for="dest">Ziel (optional)</label>
-  <input id="dest" type="text" placeholder="Ort oder Adresse" autocomplete="off" oninput="this.className=''">
+  <div class="field">
+    <label for="buf">Sicherheitspuffer <b id="bufv">15 %</b></label>
+    <input id="buf" type="range" min="0" max="40" value="15">
+  </div>
+
+  <div class="toggles">
+    <label class="tg"><input id="ret" type="checkbox"><span>Hin und zurück</span></label>
+    <label class="tg"><input id="chg" type="checkbox" checked><span>Schnelllader</span></label>
+  </div>
+
+  <div class="field">
+    <label>Start</label>
+    <div class="row"><button class="ghost" id="gps">Mein Standort</button><span id="pos">oder auf die Karte tippen</span></div>
+  </div>
+
+  <div class="field">
+    <label for="dest">Ziel <em>optional</em></label>
+    <input id="dest" type="text" placeholder="Ort oder Adresse" autocomplete="off" oninput="this.className=''">
+  </div>
 
   <details id="keybox">
-    <summary>OpenRouteService-Schlüssel</summary>
-    <input id="key" type="password" placeholder="API-Schlüssel einfügen" autocomplete="off" style="margin-top:6px">
+    <summary>API-Schlüssel</summary>
+    <input id="key" type="password" placeholder="OpenRouteService-Schlüssel einfügen" autocomplete="off">
   </details>
 
   <button class="go" id="go" disabled>Wolke berechnen</button>
-  <div id="msg"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const map = L.map('map', { zoomControl:false }).setView([51.16, 10.45], 6);
-L.control.zoom({ position:'topright' }).addTo(map);
+L.control.zoom({ position:'bottomright' }).addTo(map);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom:19, attribution:'© OpenStreetMap-Mitwirkende'
 }).addTo(map);
@@ -99,6 +157,7 @@ function say(t, err) { $('msg').textContent = t; $('msg').className = err ? 'err
 
 map.on('click', e => setStart(e.latlng));
 $('buf').oninput = () => $('bufv').textContent = $('buf').value + ' %';
+$('toggle').onclick = () => $('panel').classList.toggle('hidden');
 
 $('gps').onclick = () => {
   if (!navigator.geolocation) return say('Dieses Gerät kann keinen Standort liefern. Tippe auf die Karte.', true);
@@ -110,6 +169,27 @@ $('gps').onclick = () => {
 };
 
 const stations = L.layerGroup().addTo(map);
+let items = [], active = new Set();
+
+function applyFilter() {
+  stations.clearLayers();
+  items.forEach(i => { if (!active.size || active.has(i.op)) i.marker.addTo(stations); });
+  document.querySelectorAll('#chips button').forEach(b => b.classList.toggle('on', active.has(b.dataset.op)));
+}
+function renderChips() {
+  const box = $('chips'); box.innerHTML = '';
+  const counts = {};
+  items.forEach(i => counts[i.op] = (counts[i.op] || 0) + 1);
+  const ops = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  box.hidden = ops.length < 2;
+  ops.forEach(op => {
+    const b = document.createElement('button');
+    b.dataset.op = op; b.textContent = op + ' ' + counts[op];
+    b.onclick = () => { active.has(op) ? active.delete(op) : active.add(op); applyFilter(); };
+    box.appendChild(b);
+  });
+  applyFilter();
+}
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function edgeDist(pt, geom) {
@@ -128,7 +208,7 @@ function edgeDist(pt, geom) {
 }
 
 async function showStations(feature) {
-  stations.clearLayers();
+  stations.clearLayers(); items = []; active.clear(); $('chips').hidden = true;
   if (!$('chg').checked) return '';
   try {
     const b = L.geoJSON(feature).getBounds();
@@ -146,11 +226,15 @@ async function showStations(feature) {
       const pt = [lng, lat];
       if (!inPoly(pt, feature.geometry) || edgeDist(pt, feature.geometry) > 10000) return;
       const t = e.tags || {};
-      L.circleMarker([lat, lng], { radius:6, color:'#fff', weight:2, fillColor:'#1b1f24', fillOpacity:1 })
-        .bindPopup('<b>' + esc(t.operator || t.brand || t.name || 'Unbekannter Anbieter') + '</b>'
-          + (t.capacity ? '<br>' + esc(t.capacity) + ' Ladepunkte' : '')).addTo(stations);
+      const op = t.operator || t.brand || t.name || 'Unbekannt';
+      const marker = L.circleMarker([lat, lng], { radius:7, color:'#fff', weight:2, fillColor:'#1b1f24', fillOpacity:1 })
+        .bindPopup('<b>' + esc(op) + '</b>' + (t.capacity ? '<br>' + esc(t.capacity) + ' Ladepunkte' : '')
+          + '<br><a class="nav" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination='
+          + lat + ',' + lng + '&travelmode=driving">Navigation starten</a>');
+      items.push({ op, marker });
       n++;
     });
+    renderChips();
     return n ? n + ' Schnelllader am Rand.' : 'Keine Schnelllader am Rand gefunden.';
   } catch (e) {
     return 'Ladestationen konnten nicht geladen werden (' + e.message + ').';
@@ -220,8 +304,9 @@ $('go').onclick = async () => {
     const chgMsg = await showStations(outer);
     const b = cloud.getBounds();
     if (destMarker) b.extend(destMarker.getLatLng());
-    map.fitBounds(b, { paddingBottomRight:[0, 260] });
+    map.fitBounds(b, { paddingTopLeft:[0, 100], paddingBottomRight:[0, 80] });
     say((ranges.length > 1 ? 'Dunkel: sicher erreichbar. Gestrichelt: theoretisch erreichbar.' : 'Fertig. Das ist deine Wolke.') + ' ' + destMsg + ' ' + chgMsg);
+    $('panel').classList.add('hidden');
   } catch (e) {
     say('Fehler: ' + e.message + '. Prüfe Schlüssel und Entfernung, ORS begrenzt die maximale Strecke pro Anfrage.', true);
   } finally { $('go').disabled = false; }
