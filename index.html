@@ -8,68 +8,65 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#fff; --ink:#1b1f24; --mute:#6b7280; --fill:#f3f4f6; --acc:#2e9e5b; --warn:#d6452f; --shadow:0 2px 12px rgba(0,0,0,.16); }
+  :root { --ink:#1b1f24; --mute:#4b5563; --acc:#2e9e5b; --warn:#d6452f; --glass:rgba(255,255,255,.55); --glass-line:rgba(255,255,255,.7); }
   * { box-sizing: border-box; }
   html, body { height:100%; margin:0; font-family:Inter,system-ui,sans-serif; color:var(--ink); }
   #map { position:absolute; inset:0; }
   button { font:inherit; font-weight:600; border:0; cursor:pointer; }
+  .glass { background:var(--glass); -webkit-backdrop-filter:blur(14px) saturate(1.4); backdrop-filter:blur(14px) saturate(1.4);
+    border:1px solid var(--glass-line); box-shadow:0 4px 24px rgba(0,0,0,.10); }
 
   .brand { position:absolute; z-index:1000; top:calc(12px + env(safe-area-inset-top,0px)); left:12px; display:flex;
-    align-items:center; gap:8px; background:var(--bg); padding:7px 12px 7px 9px; border-radius:999px;
-    box-shadow:var(--shadow); font-weight:700; font-size:16px; letter-spacing:-.01em; }
+    align-items:center; gap:8px; background:rgba(255,255,255,.85); padding:7px 12px 7px 9px; border-radius:999px;
+    box-shadow:0 2px 12px rgba(0,0,0,.14); font-weight:700; font-size:16px; letter-spacing:-.01em; }
 
   .chips { position:absolute; z-index:1000; top:calc(58px + env(safe-area-inset-top,0px)); left:12px; right:12px;
     display:flex; gap:6px; overflow-x:auto; padding:2px 2px 6px; scrollbar-width:none; }
   .chips[hidden] { display:none; }
-  .chips button { background:var(--bg); color:var(--ink); box-shadow:var(--shadow); border-radius:999px;
-    padding:7px 12px; font-size:13px; white-space:nowrap; }
+  .chips button { background:rgba(255,255,255,.85); color:var(--ink); box-shadow:0 2px 12px rgba(0,0,0,.14);
+    border-radius:999px; padding:7px 12px; font-size:13px; white-space:nowrap; }
   .chips button.on { background:var(--ink); color:#fff; }
 
-  .dock { position:absolute; z-index:1001; left:12px; right:60px; bottom:calc(12px + env(safe-area-inset-bottom,0px));
-    display:flex; align-items:center; gap:8px; pointer-events:none; }
-  .dock > * { pointer-events:auto; }
-  .fab { display:flex; align-items:center; gap:8px; background:var(--ink); color:#fff; padding:12px 16px;
-    border-radius:999px; box-shadow:var(--shadow); flex:none; }
-  #msg { background:var(--bg); border-radius:12px; padding:9px 12px; font-size:13px; box-shadow:var(--shadow); }
+  .rail { position:absolute; z-index:1000; left:12px; top:50%; transform:translateY(-50%); width:220px;
+    max-height:calc(100% - 220px); overflow-y:auto; padding:16px; border-radius:22px; }
+  .sl { margin-bottom:14px; }
+  .top { display:flex; justify-content:space-between; align-items:baseline; }
+  label { font-size:13px; font-weight:600; }
+  .top b { font-size:20px; letter-spacing:-.02em; }
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:28px; background:transparent; margin:0; }
+  input[type=range]::-webkit-slider-runnable-track { height:6px; border-radius:3px; background:rgba(27,31,36,.18); }
+  input[type=range]::-moz-range-track { height:6px; border-radius:3px; background:rgba(27,31,36,.18); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:24px; height:24px; margin-top:-9px; border-radius:50%;
+    background:#fff; border:3px solid var(--acc); box-shadow:0 1px 4px rgba(0,0,0,.25); }
+  input[type=range]::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:#fff; border:3px solid var(--acc); }
+
+  .toggles { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .tg { display:inline-block; margin:0; }
+  .tg input { position:absolute; opacity:0; pointer-events:none; }
+  .tg span { display:inline-block; padding:8px 12px; border-radius:999px; background:rgba(255,255,255,.7); font-size:12px; font-weight:600; cursor:pointer; }
+  .tg input:checked + span { background:var(--acc); color:#fff; }
+  .tg input:focus-visible + span { outline:2px solid var(--ink); outline-offset:2px; }
+  #pos { font-size:12px; color:var(--mute); margin-bottom:8px; }
+  details { font-size:12px; }
+  summary { cursor:pointer; color:var(--mute); }
+  .rail input[type=password] { width:100%; margin-top:8px; padding:10px 12px; border:2px solid transparent; border-radius:12px;
+    background:rgba(255,255,255,.7); font:inherit; outline:0; }
+  .rail input[type=password]:focus { border-color:var(--acc); }
+
+  #msg { position:absolute; z-index:1001; left:12px; right:60px; width:fit-content; max-width:calc(100% - 72px);
+    bottom:calc(76px + env(safe-area-inset-bottom,0px)); padding:9px 12px; border-radius:14px; font-size:13px; }
   #msg:empty { display:none; }
   #msg.err { color:var(--warn); }
 
-  .panel { position:absolute; z-index:1000; left:12px; right:12px; bottom:calc(72px + env(safe-area-inset-bottom,0px));
-    max-width:380px; max-height:calc(100% - 150px); overflow-y:auto; background:var(--bg); border-radius:18px;
-    padding:18px; box-shadow:var(--shadow); transition:opacity .15s, transform .15s; }
-  .panel.hidden { opacity:0; transform:translateY(8px); pointer-events:none; }
-  .sub { color:var(--mute); font-size:13px; margin:0 0 16px; }
-
-  .field { margin-bottom:16px; }
-  label { display:block; font-size:13px; font-weight:600; margin:0 0 6px; }
-  label b { float:right; color:var(--acc); }
-  label em { font-style:normal; font-weight:400; color:var(--mute); margin-left:4px; }
-  small { display:block; color:var(--mute); font-size:12px; margin-top:4px; }
-
-  .panel input[type=number], .panel input[type=text], .panel input[type=password] { width:100%; padding:12px 14px;
-    border:2px solid transparent; border-radius:12px; background:var(--fill); font:inherit; color:inherit; outline:0; }
-  .panel .km input[type=number] { padding-right:44px; }
-  .panel input[type=number]:focus, .panel input[type=text]:focus, .panel input[type=password]:focus { border-color:var(--acc); background:#fff; }
-  .panel input[type=text].ok { background:#e6f4ec; border-color:var(--acc); }
-  .panel input[type=text].bad { background:#fbe9e6; border-color:var(--warn); }
-  .km { position:relative; }
-  .km span { position:absolute; right:14px; top:50%; transform:translateY(-50%); color:var(--mute); font-weight:600; }
-  input[type=range] { width:100%; accent-color:var(--acc); }
-
-  .toggles { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-  .tg { display:inline-block; margin:0; }
-  .tg input { position:absolute; opacity:0; pointer-events:none; }
-  .tg span { display:inline-block; padding:9px 14px; border-radius:999px; background:var(--fill); font-size:13px; font-weight:600; cursor:pointer; }
-  .tg input:checked + span { background:var(--acc); color:#fff; }
-  .tg input:focus-visible + span { outline:2px solid var(--ink); outline-offset:2px; }
-
-  .row { display:flex; gap:10px; align-items:center; }
-  .ghost { background:var(--fill); color:var(--ink); padding:10px 14px; border-radius:12px; white-space:nowrap; }
-  #pos { font-size:13px; color:var(--mute); }
-  details { margin-bottom:16px; font-size:13px; }
-  summary { cursor:pointer; color:var(--mute); }
-  details input { margin-top:8px; }
-  .go { background:var(--acc); color:#fff; width:100%; padding:14px; border-radius:12px; font-size:15px; }
+  .dock { position:absolute; z-index:1001; left:12px; right:60px; max-width:460px; bottom:calc(12px + env(safe-area-inset-bottom,0px));
+    display:flex; align-items:center; gap:8px; padding:8px; border-radius:22px; }
+  .dock input[type=text] { flex:1; min-width:0; padding:12px 14px; border:2px solid transparent; border-radius:14px;
+    background:rgba(255,255,255,.7); font:inherit; color:inherit; outline:0; }
+  .dock input[type=text]:focus { border-color:var(--acc); }
+  .dock input[type=text].ok { background:rgba(230,244,236,.92); border-color:var(--acc); }
+  .dock input[type=text].bad { background:rgba(251,233,230,.92); border-color:var(--warn); }
+  .icon { flex:none; width:46px; height:46px; display:grid; place-items:center; border-radius:14px; background:rgba(255,255,255,.7); color:var(--ink); }
+  .go { flex:none; height:46px; padding:0 16px; border-radius:14px; background:var(--acc); color:#fff; font-size:15px; }
   .go:disabled { opacity:.4; cursor:default; }
 
   .leaflet-popup-content a.nav { display:inline-block; margin-top:8px; background:var(--acc); color:#fff;
@@ -89,49 +86,34 @@
 
 <div id="chips" class="chips" hidden></div>
 
-<div class="dock">
-  <button id="toggle" class="fab" aria-label="Eingaben ein- oder ausblenden">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
-    Eingaben
-  </button>
-  <div id="msg"></div>
-</div>
-
-<div class="panel" id="panel">
-  <p class="sub">Wie weit kommst du noch, bevor die Ladesäule ruft?</p>
-
-  <div class="field">
-    <label for="km">Restreichweite</label>
-    <div class="km"><input id="km" type="number" min="1" max="120" value="100" inputmode="numeric"><span>km</span></div>
-    <small>Maximal 120 km</small>
+<div class="rail glass">
+  <div class="sl">
+    <div class="top"><label for="km">Reichweite</label><b id="kmv">100 km</b></div>
+    <input id="km" type="range" min="0" max="120" value="100">
   </div>
-
-  <div class="field">
-    <label for="buf">Sicherheitspuffer <b id="bufv">15 %</b></label>
+  <div class="sl">
+    <div class="top"><label for="buf">Puffer</label><b id="bufv">15 km</b></div>
     <input id="buf" type="range" min="0" max="40" value="15">
   </div>
-
   <div class="toggles">
     <label class="tg"><input id="ret" type="checkbox"><span>Hin und zurück</span></label>
     <label class="tg"><input id="chg" type="checkbox" checked><span>Schnelllader</span></label>
   </div>
-
-  <div class="field">
-    <label>Start</label>
-    <div class="row"><button class="ghost" id="gps">Mein Standort</button><span id="pos">oder auf die Karte tippen</span></div>
-  </div>
-
-  <div class="field">
-    <label for="dest">Ziel <em>optional</em></label>
-    <input id="dest" type="text" placeholder="Ort oder Adresse" autocomplete="off" oninput="this.className=''">
-  </div>
-
+  <div id="pos">Start: GPS-Knopf oder Karte antippen</div>
   <details id="keybox">
     <summary>API-Schlüssel</summary>
-    <input id="key" type="password" placeholder="OpenRouteService-Schlüssel einfügen" autocomplete="off">
+    <input id="key" type="password" placeholder="OpenRouteService-Schlüssel" autocomplete="off">
   </details>
+</div>
 
-  <button class="go" id="go" disabled>Wolke berechnen</button>
+<div id="msg" class="glass"></div>
+
+<div class="dock glass">
+  <input id="dest" type="text" placeholder="Ziel (optional)" autocomplete="off" oninput="this.className=''">
+  <button id="gps" class="icon" aria-label="Mein Standort">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+  </button>
+  <button class="go" id="go" disabled>Berechnen</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -156,8 +138,8 @@ function setStart(latlng) {
 function say(t, err) { $('msg').textContent = t; $('msg').className = err ? 'err' : ''; }
 
 map.on('click', e => setStart(e.latlng));
-$('buf').oninput = () => $('bufv').textContent = $('buf').value + ' %';
-$('toggle').onclick = () => $('panel').classList.toggle('hidden');
+$('km').oninput = () => $('kmv').textContent = $('km').value + ' km';
+$('buf').oninput = () => $('bufv').textContent = $('buf').value + ' km';
 
 $('gps').onclick = () => {
   if (!navigator.geolocation) return say('Dieses Gerät kann keinen Standort liefern. Tippe auf die Karte.', true);
@@ -277,10 +259,11 @@ $('go').onclick = async () => {
   let km = parseFloat($('km').value);
   if (!(km > 0)) return say('Gib eine Restreichweite über 0 km ein.', true);
   if (km > 120) return say('DistCloud rechnet bis höchstens 120 km. Gib einen kleineren Wert ein.', true);
-  if ($('ret').checked) km /= 2;
-  const safe = Math.round(km * (1 - $('buf').value / 100) * 1000);
+  let buf = parseFloat($('buf').value) || 0;
+  if ($('ret').checked) { km /= 2; buf /= 2; }
+  const safe = Math.round(Math.max(0, km - buf) * 1000);
   const full = Math.round(km * 1000);
-  const ranges = safe < full ? [safe, full] : [full];
+  const ranges = safe > 0 && safe < full ? [safe, full] : [full];
 
   $('go').disabled = true; say('Rechne …');
   try {
@@ -304,9 +287,8 @@ $('go').onclick = async () => {
     const chgMsg = await showStations(outer);
     const b = cloud.getBounds();
     if (destMarker) b.extend(destMarker.getLatLng());
-    map.fitBounds(b, { paddingTopLeft:[0, 100], paddingBottomRight:[0, 80] });
+    map.fitBounds(b, { paddingTopLeft:[window.innerWidth > 700 ? 240 : 0, 100], paddingBottomRight:[0, 140] });
     say((ranges.length > 1 ? 'Dunkel: sicher erreichbar. Gestrichelt: theoretisch erreichbar.' : 'Fertig. Das ist deine Wolke.') + ' ' + destMsg + ' ' + chgMsg);
-    $('panel').classList.add('hidden');
   } catch (e) {
     say('Fehler: ' + e.message + '. Prüfe Schlüssel und Entfernung, ORS begrenzt die maximale Strecke pro Anfrage.', true);
   } finally { $('go').disabled = false; }
