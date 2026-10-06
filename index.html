@@ -69,6 +69,22 @@
   .go { flex:none; height:46px; padding:0 16px; border-radius:14px; background:var(--acc); color:#fff; font-size:15px; }
   .go:disabled { opacity:.4; cursor:default; }
 
+  .loc { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:11px 12px; border-radius:14px;
+    background:rgba(255,255,255,.7); color:var(--ink); font-size:13px; margin-bottom:6px; }
+  .poi img { display:block; width:100%; height:120px; object-fit:cover; border-radius:10px; margin-bottom:8px; }
+  .poi img[hidden] { display:none; }
+  .poi .info { font-size:12px; color:#4b5563; white-space:pre-line; margin-top:2px; }
+  .poi small { display:block; font-size:10px; color:#6b7280; margin-top:4px; }
+  .poi a.more { display:block; margin-top:8px; font-size:12px; color:var(--acc); font-weight:600; }
+  .busy { position:absolute; inset:0; z-index:2000; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.45); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
+  .busy[hidden] { display:none; }
+  .ring-wrap { position:relative; width:132px; height:132px; display:grid; place-items:center; }
+  .ring { position:absolute; inset:0; animation:spin 1.1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .ring { animation-duration:3s; } }
+  .busy-name { margin-top:14px; font-weight:700; font-size:20px; letter-spacing:-.01em; }
+  .busy-sub { font-size:13px; color:var(--mute); margin-top:2px; }
   .leaflet-popup-content a.nav { display:inline-block; margin-top:8px; background:var(--acc); color:#fff;
     padding:7px 12px; border-radius:8px; text-decoration:none; font-weight:600; }
 </style>
@@ -99,20 +115,34 @@
     <label class="tg"><input id="ret" type="checkbox"><span>Hin und zurück</span></label>
     <label class="tg"><input id="chg" type="checkbox" checked><span>Schnelllader</span></label>
   </div>
-  <div id="pos">Start: GPS-Knopf oder Karte antippen</div>
+  <button id="gps" class="loc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Mein Standort</button>
+  <div id="pos">oder Karte antippen</div>
   <details id="keybox">
     <summary>API-Schlüssel</summary>
     <input id="key" type="password" placeholder="OpenRouteService-Schlüssel" autocomplete="off">
+    <input id="gkey" type="password" placeholder="Google-Schlüssel (optional, für Fotos)" autocomplete="off">
   </details>
 </div>
 
 <div id="msg" class="glass"></div>
 
+<div id="busy" class="busy" hidden>
+  <div class="ring-wrap">
+    <svg class="ring" width="132" height="132" viewBox="0 0 132 132" aria-hidden="true">
+      <circle cx="66" cy="66" r="58" fill="none" stroke="rgba(27,31,36,.12)" stroke-width="6"/>
+      <circle cx="66" cy="66" r="58" fill="none" stroke="#2e9e5b" stroke-width="6" stroke-linecap="round" stroke-dasharray="110 260"/>
+    </svg>
+    <svg width="56" height="56" viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M9 24a6 6 0 0 1-.6-11.97A8 8 0 0 1 23.7 10.6 6.7 6.7 0 0 1 23 24z" fill="#2e9e5b"/>
+      <circle cx="16" cy="17" r="3.2" fill="#fff"/><circle cx="16" cy="17" r="1.3" fill="#2e9e5b"/>
+    </svg>
+  </div>
+  <div class="busy-name">DistCloud</div>
+  <div class="busy-sub">Wolke wird berechnet</div>
+</div>
+
 <div class="dock glass">
   <input id="dest" type="text" placeholder="Ziel (optional)" autocomplete="off" oninput="this.className=''">
-  <button id="gps" class="icon" aria-label="Mein Standort">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-  </button>
   <button class="go" id="go" disabled>Berechnen</button>
 </div>
 
@@ -126,7 +156,8 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 let start = null, marker = null, cloud = null;
-try { $('key').value = localStorage.getItem('ors_key') || ''; } catch(e) {}
+try { $('key').value = localStorage.getItem('ors_key') || ''; $('gkey').value = localStorage.getItem('g_key') || ''; } catch(e) {}
+$('gkey').onchange = () => { try { localStorage.setItem('g_key', $('gkey').value.trim()); } catch(e) {} };
 if (!$('key').value) $('keybox').open = true;
 
 function setStart(latlng) {
@@ -189,6 +220,68 @@ function edgeDist(pt, geom) {
   return best;
 }
 
+function makeMarker(lat, lng, op, t) {
+  const box = document.createElement('div'); box.className = 'poi';
+  const img = document.createElement('img'); img.hidden = true; img.alt = '';
+  const title = document.createElement('b'); title.textContent = op;
+  const info = document.createElement('div'); info.className = 'info';
+  info.textContent = t.capacity ? t.capacity + ' Ladepunkte' : '';
+  const credit = document.createElement('small'); credit.hidden = true;
+  const nav = document.createElement('a'); nav.className = 'nav'; nav.target = '_blank'; nav.rel = 'noopener';
+  nav.href = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '&travelmode=driving';
+  nav.textContent = 'Navigation starten';
+  const more = document.createElement('a'); more.className = 'more'; more.target = '_blank'; more.rel = 'noopener';
+  more.href = 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lng;
+  more.textContent = 'In Google Maps ansehen';
+  box.append(img, title, info, credit, nav, more);
+  const marker = L.circleMarker([lat, lng], { radius:7, color:'#fff', weight:2, fillColor:'#1b1f24', fillOpacity:1 })
+    .bindPopup(box, { minWidth:220, maxWidth:260 });
+  img.onload = () => marker.getPopup().update();
+  let loaded = false;
+  marker.on('popupopen', async () => {
+    const gkey = $('gkey').value.trim();
+    if (loaded || !gkey) return;
+    loaded = true;
+    try {
+      const r = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'X-Goog-Api-Key':gkey,
+          'X-Goog-FieldMask':'places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.photos,places.googleMapsUri,places.evChargeOptions' },
+        body: JSON.stringify({ includedTypes:['electric_vehicle_charging_station'], maxResultCount:1,
+          locationRestriction:{ circle:{ center:{ latitude:lat, longitude:lng }, radius:150 } } })
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error((d.error && d.error.message) || r.status);
+      const g = d.places && d.places[0];
+      if (!g) { info.textContent += (info.textContent ? '\n' : '') + 'Kein Google-Eintrag gefunden.'; return; }
+      if (g.displayName && g.displayName.text) title.textContent = g.displayName.text;
+      const lines = [];
+      if (g.formattedAddress) lines.push(g.formattedAddress);
+      if (g.rating) lines.push('Bewertung ' + g.rating + (g.userRatingCount ? ' (' + g.userRatingCount + ')' : ''));
+      const ev = g.evChargeOptions;
+      if (ev) {
+        const kw = Math.max(0, ...(ev.connectorAggregation || []).map(a => a.maxChargeRateKw || 0));
+        lines.push((ev.connectorCount || '?') + ' Ladepunkte' + (kw ? ', bis ' + Math.round(kw) + ' kW' : ''));
+      } else if (t.capacity) lines.push(t.capacity + ' Ladepunkte');
+      info.textContent = lines.join('\n');
+      if (g.googleMapsUri && g.googleMapsUri.startsWith('https://')) more.href = g.googleMapsUri;
+      const ph = g.photos && g.photos[0];
+      if (ph) {
+        img.src = 'https://places.googleapis.com/v1/' + ph.name + '/media?maxHeightPx=240&maxWidthPx=400&key=' + encodeURIComponent(gkey);
+        img.hidden = false;
+        const au = ph.authorAttributions && ph.authorAttributions[0];
+        credit.textContent = 'Foto: ' + (au && au.displayName ? au.displayName + ', ' : '') + 'Google';
+        credit.hidden = false;
+      }
+      marker.getPopup().update();
+    } catch (e) {
+      loaded = false;
+      info.textContent = 'Google-Infos nicht geladen: ' + e.message;
+    }
+  });
+  return marker;
+}
+
 async function showStations(feature) {
   stations.clearLayers(); items = []; active.clear(); $('chips').hidden = true;
   if (!$('chg').checked) return '';
@@ -209,10 +302,7 @@ async function showStations(feature) {
       if (!inPoly(pt, feature.geometry) || edgeDist(pt, feature.geometry) > 10000) return;
       const t = e.tags || {};
       const op = t.operator || t.brand || t.name || 'Unbekannt';
-      const marker = L.circleMarker([lat, lng], { radius:7, color:'#fff', weight:2, fillColor:'#1b1f24', fillOpacity:1 })
-        .bindPopup('<b>' + esc(op) + '</b>' + (t.capacity ? '<br>' + esc(t.capacity) + ' Ladepunkte' : '')
-          + '<br><a class="nav" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination='
-          + lat + ',' + lng + '&travelmode=driving">Navigation starten</a>');
+      const marker = makeMarker(lat, lng, op, t);
       items.push({ op, marker });
       n++;
     });
@@ -265,7 +355,7 @@ $('go').onclick = async () => {
   const full = Math.round(km * 1000);
   const ranges = safe > 0 && safe < full ? [safe, full] : [full];
 
-  $('go').disabled = true; say('Rechne …');
+  $('go').disabled = true; $('busy').hidden = false; say('Rechne …');
   try {
     const r = await fetch('https://api.openrouteservice.org/v2/isochrones/driving-car', {
       method:'POST',
@@ -291,7 +381,7 @@ $('go').onclick = async () => {
     say((ranges.length > 1 ? 'Dunkel: sicher erreichbar. Gestrichelt: theoretisch erreichbar.' : 'Fertig. Das ist deine Wolke.') + ' ' + destMsg + ' ' + chgMsg);
   } catch (e) {
     say('Fehler: ' + e.message + '. Prüfe Schlüssel und Entfernung, ORS begrenzt die maximale Strecke pro Anfrage.', true);
-  } finally { $('go').disabled = false; }
+  } finally { $('go').disabled = false; $('busy').hidden = true; }
 };
 </script>
 </body>
